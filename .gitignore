@@ -1,3 +1,5 @@
 /target
 .envrc
 glauth-database.json
+glauth.cfg
+glauth.cfg.tpl

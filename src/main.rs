@@ -1,16 +1,18 @@
-use hex::encode;
-use log::{error, info};
-use std::env;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::process::ExitCode;
-
 mod elasticsearch;
 mod userdb;
 
 use elasticsearch::get_roles;
 use elasticsearch::get_users;
 use elasticsearch::ElasticsearchConfig;
+use hex::encode;
+use log::{error, info};
+use std::env;
+use std::fmt::Write;
+use std::fs::read_to_string;
+use std::io::Write as FsWrite;
+use std::path::Path;
+use std::process::ExitCode;
+use tempfile::NamedTempFile;
 use userdb::{read_userdb, write_userdb, User};
 
 fn split_name(full_name: &str) -> (String, String) {
@@ -39,7 +41,30 @@ fn main() -> ExitCode {
         .parse()
         .expect("GLAUTH_PRIMARY_GROUP is expected to be an unsigned number");
 
-    let glauth_config_path = env::var("GLAUTH_TEMP_CONFIG").expect("missing GLAUTH_TEMP_CONFIG");
+    let glauth_config_template_path =
+        env::var("GLAUTH_CONFIG_TEMPLATE_PATH").expect("missing GLAUTH_CONFIG_TEMPLATE_PATH");
+    let glauth_config_path = env::var("GLAUTH_CONFIG_PATH").expect("missing GLAUTH_CONFIG_PATH");
+    let glauth_config_directory = Path::new(&glauth_config_path)
+        .parent()
+        .expect("Failed to get directory of glauth configuration");
+
+    // Read glauth configuration template
+    let glauth_config_template = match read_to_string(glauth_config_template_path) {
+        Ok(data) => data,
+        Err(error) => {
+            error!("Failed to read glauth configuration template ({})", error);
+            return ExitCode::from(1);
+        }
+    };
+
+    // Read glauth configuration
+    let glauth_config = match read_to_string(&glauth_config_path) {
+        Ok(data) => data,
+        Err(error) => {
+            error!("Failed to read glauth configuration ({})", error);
+            return ExitCode::from(1);
+        }
+    };
 
     // Get users and groups from elasticsearch
     let elasticsearch_config = ElasticsearchConfig {
@@ -72,21 +97,21 @@ fn main() -> ExitCode {
 
     // get max uid from userdb or fall back to min_uid
     let mut max_uid = userdb
-        .users.values().map(|user| user.uid)
+        .users
+        .values()
+        .map(|user| user.uid)
         .max()
         .unwrap_or(min_uid);
 
     // Add missing users to userdb
     for user in &users {
-        userdb
-            .users
-            .entry(user.username.clone())
-            .or_insert_with(|| {
-                info!("Adding {} with uid {}", user.username, max_uid);
-                let user = User { uid: max_uid };
-                max_uid += 1;
-                user
-            });
+        if !userdb.users.contains_key(&user.username) {
+            info!("Adding {} with uid {}", user.username, max_uid);
+            userdb
+                .users
+                .insert(user.username.clone(), User { uid: max_uid });
+            max_uid += 1;
+        }
     }
 
     // write modified userdb back to file
@@ -103,20 +128,13 @@ fn main() -> ExitCode {
             .unwrap()
     });
 
-    let glauth_config_file = match File::options()
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(glauth_config_path)
-    {
-        Ok(file) => file,
-        Err(error) => {
-            error!("Failed to opent glauth temp config for writing ({})", error);
-            return ExitCode::from(1);
-        }
-    };
-    let mut writer = BufWriter::new(glauth_config_file);
+    // Create string for new config with capacity of old config
+    let mut new_config_str = String::with_capacity(glauth_config.len());
 
+    // Write config template into new config
+    new_config_str.push_str(&glauth_config_template);
+
+    // Write elasticsearch users into new config
     for user in users {
         let glauth_password_hash = encode(&user.password).to_uppercase();
         let (first_name, last_name) = split_name(&user.full_name);
@@ -137,7 +155,7 @@ fn main() -> ExitCode {
             .collect::<Vec<_>>();
         other_groups.sort_by(|a, b| a.partial_cmp(b).unwrap());
         match write!(
-            writer,
+            new_config_str,
             r#"
 [[users]]
   name = "{}"
@@ -168,6 +186,39 @@ fn main() -> ExitCode {
             Ok(()) => {}
             Err(error) => {
                 error!("Failed writing glauth temp config ({})", error);
+                return ExitCode::from(1);
+            }
+        };
+    }
+
+    // Compare old and new config strings
+    if new_config_str != glauth_config {
+        info!("Configurations differ, writing new");
+        let mut new_config_temp = match NamedTempFile::new_in(glauth_config_directory) {
+            Ok(new_config_temp) => new_config_temp,
+            Err(error) => {
+                error!("Failed writing glauth temp config ({})", error);
+                return ExitCode::from(1);
+            }
+        };
+
+        match new_config_temp.write_all(new_config_str.as_bytes()) {
+            Ok(_) => {}
+            Err(error) => {
+                error!("Failed writing glauth temp config ({})", error);
+                return ExitCode::from(1);
+            }
+        };
+
+        match new_config_temp.persist(&glauth_config_path) {
+            Ok(_) => {
+                info!("Persistet temp file to {}", glauth_config_path);
+            }
+            Err(error) => {
+                error!(
+                    "Failed moving temp file to actual glauth config ({})",
+                    error
+                );
                 return ExitCode::from(1);
             }
         };
