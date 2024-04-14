@@ -14,6 +14,7 @@ use std::path::Path;
 use std::process::ExitCode;
 use tempfile::NamedTempFile;
 use userdb::{read_userdb, write_userdb, User};
+use similar::TextDiff;
 
 fn split_name(full_name: &str) -> (String, String) {
     // Split the full name into words
@@ -192,8 +193,18 @@ fn main() -> ExitCode {
     }
 
     // Compare old and new config strings
-    if new_config_str != glauth_config {
+    let config_diff = TextDiff::from_lines(&glauth_config, &new_config_str);
+    if config_diff.ratio() != 1.0 {
         info!("Configurations differ, writing new");
+        for line in config_diff
+            .unified_diff()
+            .context_radius(5)
+            .header(&glauth_config_path, "new glauth.cfg")
+            .to_string()
+            .lines() {
+
+            info!("    {}", line.to_string());
+        }
         let mut new_config_temp = match NamedTempFile::new_in(glauth_config_directory) {
             Ok(new_config_temp) => new_config_temp,
             Err(error) => {
@@ -212,7 +223,7 @@ fn main() -> ExitCode {
 
         match new_config_temp.persist(&glauth_config_path) {
             Ok(_) => {
-                info!("Persistet temp file to {}", glauth_config_path);
+                info!("Persistet new configuration file to {}", glauth_config_path);
             }
             Err(error) => {
                 error!(
