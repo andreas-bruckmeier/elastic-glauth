@@ -237,3 +237,16 @@ fn main() -> ExitCode {
 
     ExitCode::from(0)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::split_name;
+    #[test]
+    fn split_name_test() {
+        assert_eq!(split_name("John Doe"), ("John".to_string(), "Doe".to_string()));
+        assert_eq!(split_name("John Doe Foo"), ("John".to_string(), "Doe Foo".to_string()));
+        assert_eq!(split_name("John"), ("John".to_string(), "".to_string()));
+        assert_eq!(split_name(""), ("".to_string(), "".to_string()));
+        assert_eq!(split_name("John  Doe"), ("John".to_string(), "Doe".to_string()));
+    }
+}
