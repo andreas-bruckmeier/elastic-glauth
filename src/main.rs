@@ -172,7 +172,7 @@ fn main() -> ExitCode {
   mail = "{}"
   givenname = "{}"
   sn = "{}"
-  uidnumber = "{}"
+  uidnumber = {}
   primarygroup = {}
   otherGroups = [{}]
   passbcrypt = "{}"
