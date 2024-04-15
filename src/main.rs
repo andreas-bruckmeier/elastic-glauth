@@ -1,11 +1,13 @@
 mod elasticsearch;
 mod userdb;
 
+use dotenv::{dotenv, from_filename};
 use elasticsearch::get_roles;
 use elasticsearch::get_users;
 use elasticsearch::ElasticsearchConfig;
 use hex::encode;
 use log::{error, info};
+use similar::TextDiff;
 use std::env;
 use std::fmt::Write;
 use std::fs::read_to_string;
@@ -14,7 +16,6 @@ use std::path::Path;
 use std::process::ExitCode;
 use tempfile::NamedTempFile;
 use userdb::{read_userdb, write_userdb, User};
-use similar::TextDiff;
 
 fn split_name(full_name: &str) -> (String, String) {
     // Split the full name into words
@@ -30,6 +31,14 @@ fn split_name(full_name: &str) -> (String, String) {
 }
 
 fn main() -> ExitCode {
+    // Optionally read dotenv file from given path or .env in current directory
+    if let Some(dotenv_file) = std::env::args().nth(1) {
+        from_filename(dotenv_file).ok();
+    } else {
+        dotenv().ok();
+    }
+
+    // Initialize logger from env vars
     env_logger::init();
 
     let min_uid: u64 = env::var("GLAUTH_MIN_UID")
@@ -201,8 +210,8 @@ fn main() -> ExitCode {
             .context_radius(5)
             .header(&glauth_config_path, "new glauth.cfg")
             .to_string()
-            .lines() {
-
+            .lines()
+        {
             info!("    {}", line.to_string());
         }
         let mut new_config_temp = match NamedTempFile::new_in(glauth_config_directory) {
@@ -243,10 +252,19 @@ mod tests {
     use crate::split_name;
     #[test]
     fn split_name_test() {
-        assert_eq!(split_name("John Doe"), ("John".to_string(), "Doe".to_string()));
-        assert_eq!(split_name("John Doe Foo"), ("John".to_string(), "Doe Foo".to_string()));
+        assert_eq!(
+            split_name("John Doe"),
+            ("John".to_string(), "Doe".to_string())
+        );
+        assert_eq!(
+            split_name("John Doe Foo"),
+            ("John".to_string(), "Doe Foo".to_string())
+        );
         assert_eq!(split_name("John"), ("John".to_string(), "".to_string()));
         assert_eq!(split_name(""), ("".to_string(), "".to_string()));
-        assert_eq!(split_name("John  Doe"), ("John".to_string(), "Doe".to_string()));
+        assert_eq!(
+            split_name("John  Doe"),
+            ("John".to_string(), "Doe".to_string())
+        );
     }
 }

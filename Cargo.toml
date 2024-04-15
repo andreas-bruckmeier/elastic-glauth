@@ -8,6 +8,7 @@ description = "Generates a glauthd configuration based on elasticsearch user dat
 
 [dependencies]
 base64 = "0.22.0"
+dotenv = "0.15.0"
 env_logger = "0.11.3"
 hex = "0.4.3"
 log = "0.4.21"
