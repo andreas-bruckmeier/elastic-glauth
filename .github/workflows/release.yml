@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  # run it on every push of a tag
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+env:
+  APPNAME: elastic-glauth
+
+jobs:
+  create_release:
+    name: Create Github Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: "Determine tag"
+        run: "echo \"RELEASE_TAG=${GITHUB_REF#refs/tags/}\" >> $GITHUB_ENV"
+
+      - name: Create Release
+        id: create_release
+        uses: "actions/github-script@v7"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          script: |
+            try {
+              const response = await github.rest.repos.createRelease({
+                draft: false,
+                generate_release_notes: false,
+                name: process.env.RELEASE_TAG,
+                owner: context.repo.owner,
+                prerelease: false,
+                repo: context.repo.repo,
+                tag_name: process.env.RELEASE_TAG,
+              });
+              core.exportVariable('RELEASE_ID', response.data.id);
+              core.exportVariable('RELEASE_UPLOAD_URL', response.data.upload_url);
+            } catch (error) {
+              core.setFailed(error.message);
+            }
+
+      - name: Output Release URL File
+        run: echo "${{ env.RELEASE_UPLOAD_URL }}" > release_url.txt
+
+      - name: Save Release URL File for publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: release_url
+          path: release_url.txt
+
+  build_artifact:
+    needs: [create_release]
+    name: ${{ matrix.os }}/${{ github.ref }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install latest toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Audit project
+        #uses: rustsec/audit-check@v1.4.1
+        # https://github.com/rustsec/audit-check/pull/16
+        uses: clechasseur/rustsec-audit-check@b5ade62a8d38826bb50ca4b8b9bc2a8a97f0d44d
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build via Cargo
+        run: cargo build --release
+
+      - name: Strip Release
+        run: strip target/release/${{ env.APPNAME }}
+
+      - name: Load Release URL File from release job
+        uses: actions/download-artifact@v4
+        with:
+          name: release_url
+
+      - name: Get Release File Name & Upload URL
+        id: get_release_info
+        run: |
+          echo "upload_url=$(cat release_url.txt)" >> $GITHUB_OUTPUT
+
+      - name: Show GITHUB_OUTPUT variable
+        run: echo $GITHUB_OUTPUT
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          asset_path: ./target/release/${{ env.APPNAME }}
+          asset_name: ${{ env.APPNAME }}-${{ runner.os }}-${{ matrix.os }}-${{ github.ref_name }}
+          asset_content_type: application/octet-stream

@@ -1,0 +1,46 @@
+name: Build Application
+
+on:
+  # run it on every push to main
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - '*'
+
+jobs:
+  # define job
+  build:
+    name: ${{ matrix.os }}/${{ github.ref }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install latest toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Run audit checks
+        #uses: rustsec/audit-check@v1.4.1
+        # https://github.com/rustsec/audit-check/pull/16
+        uses: clechasseur/rustsec-audit-check@b5ade62a8d38826bb50ca4b8b9bc2a8a97f0d44d
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Run clippy
+        run: cargo clippy
