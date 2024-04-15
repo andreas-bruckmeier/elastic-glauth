@@ -190,8 +190,8 @@ fn main() -> ExitCode {
             glauth_primary_group,
             other_groups.join(", "),
             glauth_password_hash,
-            last_name,
             first_name,
+            last_name,
         ) {
             Ok(()) => {}
             Err(error) => {
