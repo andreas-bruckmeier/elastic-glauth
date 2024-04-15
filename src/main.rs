@@ -15,7 +15,7 @@ use std::io::Write as FsWrite;
 use std::path::Path;
 use std::process::ExitCode;
 use tempfile::NamedTempFile;
-use userdb::{read_userdb, write_userdb, User};
+use userdb::UserDB;
 
 fn split_name(full_name: &str) -> (String, String) {
     // Split the full name into words
@@ -103,38 +103,29 @@ fn main() -> ExitCode {
     };
 
     // read users database
-    let mut userdb = read_userdb().unwrap();
+    let mut userdb = UserDB::from_file("glauth-database.json".to_string()).unwrap();
 
-    // get max uid from userdb or fall back to min_uid
-    let mut max_uid = userdb
-        .users
-        .values()
-        .map(|user| user.uid)
-        .max()
-        .unwrap_or(min_uid);
+    let mut max_uid = userdb.get_max_uid().unwrap_or(min_uid);
 
     // Add missing users to userdb
     for user in &users {
-        if !userdb.users.contains_key(&user.username) {
-            info!("Adding {} with uid {}", user.username, max_uid);
-            userdb
-                .users
-                .insert(user.username.clone(), User { uid: max_uid });
+        if !userdb.contains(&user.username) {
+            info!("Adding new user {} with uid {}", &user.username, max_uid);
+            userdb.insert(user.username.clone(), max_uid);
             max_uid += 1;
         }
     }
 
     // write modified userdb back to file
-    write_userdb(&userdb).unwrap();
+    userdb.write().unwrap();
 
     // Sort users by their uid
     users.sort_by(|a, b| {
         userdb
-            .users
-            .get(&a.username)
+            .get_user(&a.username)
             .unwrap()
-            .uid
-            .partial_cmp(&userdb.users.get(&b.username).unwrap().uid)
+            .get_uid()
+            .partial_cmp(&userdb.get_user(&b.username).unwrap().get_uid())
             .unwrap()
     });
 
@@ -186,7 +177,7 @@ fn main() -> ExitCode {
             user.email,
             first_name,
             last_name,
-            userdb.users.get(&user.username).unwrap().uid,
+            userdb.get_user(&user.username).unwrap().get_uid(),
             glauth_primary_group,
             other_groups.join(", "),
             glauth_password_hash,
@@ -195,7 +186,7 @@ fn main() -> ExitCode {
         ) {
             Ok(()) => {}
             Err(error) => {
-                error!("Failed writing glauth temp config ({})", error);
+                error!("Failed to generate new configuration ({})", error);
                 return ExitCode::from(1);
             }
         };
@@ -217,7 +208,7 @@ fn main() -> ExitCode {
         let mut new_config_temp = match NamedTempFile::new_in(glauth_config_directory) {
             Ok(new_config_temp) => new_config_temp,
             Err(error) => {
-                error!("Failed writing glauth temp config ({})", error);
+                error!("Failed to create temporary config file ({})", error);
                 return ExitCode::from(1);
             }
         };
@@ -225,20 +216,17 @@ fn main() -> ExitCode {
         match new_config_temp.write_all(new_config_str.as_bytes()) {
             Ok(_) => {}
             Err(error) => {
-                error!("Failed writing glauth temp config ({})", error);
+                error!("Failed to write to temporary config file ({})", error);
                 return ExitCode::from(1);
             }
         };
 
         match new_config_temp.persist(&glauth_config_path) {
             Ok(_) => {
-                info!("Persistet new configuration file to {}", glauth_config_path);
+                info!("Persisted new configuration to {}", glauth_config_path);
             }
             Err(error) => {
-                error!(
-                    "Failed moving temp file to actual glauth config ({})",
-                    error
-                );
+                error!("Failed to persist new configuration ({})", error);
                 return ExitCode::from(1);
             }
         };
