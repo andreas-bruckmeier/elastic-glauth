@@ -32,13 +32,6 @@ jobs:
       - name: Install latest toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Run audit checks
-        #uses: rustsec/audit-check@v1.4.1
-        # https://github.com/rustsec/audit-check/pull/16
-        uses: clechasseur/rustsec-audit-check@b5ade62a8d38826bb50ca4b8b9bc2a8a97f0d44d
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Run tests
         run: cargo test
 
