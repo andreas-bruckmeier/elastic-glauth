@@ -28,6 +28,7 @@ jobs:
         id: create_release
         uses: "actions/github-script@v7"
         with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
           script: |
             try {
               const response = await github.rest.repos.createRelease({
