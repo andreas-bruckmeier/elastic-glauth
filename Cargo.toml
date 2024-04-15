@@ -1,6 +1,6 @@
 [package]
 name = "elastic-glauth"
-version = "0.1.0"
+version = "0.1.5"
 edition = "2021"
 description = "Generates a glauthd configuration based on elasticsearch user database"
 
