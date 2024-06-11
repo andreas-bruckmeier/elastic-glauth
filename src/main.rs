@@ -105,14 +105,14 @@ fn main() -> ExitCode {
     // read users database
     let mut userdb = UserDB::from_file("glauth-database.json".to_string()).unwrap();
 
-    let mut max_uid = userdb.get_max_uid().unwrap_or(min_uid);
+    let mut new_uid = userdb.get_max_uid().unwrap_or(min_uid) + 1;
 
     // Add missing users to userdb
     for user in &users {
         if !userdb.contains(&user.username) {
-            info!("Adding new user {} with uid {}", &user.username, max_uid);
-            userdb.insert(user.username.clone(), max_uid);
-            max_uid += 1;
+            info!("Adding new user {} with uid {}", &user.username, new_uid);
+            userdb.insert(user.username.clone(), new_uid);
+            new_uid += 1;
         }
     }
 
