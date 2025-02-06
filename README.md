@@ -9,7 +9,7 @@ This tool exports users and password hashes from Elasticsearch into the super li
 * Fetch all users from Elasticsearch which are member of any previously fetched roles
 * Iterate over all fetched users and:
   * persist users in a JSON userdb to assign unique uids
-***  * append a config section for each user to the new configuration string
+**  * append a config section for each user to the new configuration string
 * Compare old and new configuration, write new configuration over old when changed
 
 ## Configuration
