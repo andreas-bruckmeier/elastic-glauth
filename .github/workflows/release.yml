@@ -50,7 +50,7 @@ jobs:
         run: echo "${{ env.RELEASE_UPLOAD_URL }}" > release_url.txt
 
       - name: Save Release URL File for publish
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release_url
           path: release_url.txt
