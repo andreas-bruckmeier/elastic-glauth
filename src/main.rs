@@ -203,7 +203,7 @@ fn main() -> ExitCode {
             .to_string()
             .lines()
         {
-            info!("    {}", line.to_string());
+            info!("    {line}");
         }
         let mut new_config_temp = match NamedTempFile::new_in(glauth_config_directory) {
             Ok(new_config_temp) => new_config_temp,

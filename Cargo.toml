@@ -1,20 +1,20 @@
 [package]
 name = "elastic-glauth"
-version = "0.1.6"
-edition = "2021"
+version = "1.0.0"
+edition = "2024"
 description = "Generates a glauthd configuration based on elasticsearch user database"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-base64 = "0.22.0"
-dotenv = "0.15.0"
-env_logger = "0.11.3"
-hex = "0.4.3"
-log = "0.4.21"
-serde = { version = "1.0.197", features = ["derive"] }
-serde_json = { version = "1.0.115", features = ["raw_value"] }
-similar = "2.5.0"
-tempfile = "3.10.1"
-thiserror = "1.0.58"
-ureq = { version = "2.9.6", features = ["json"] }
+base64 = "0.22"
+dotenv = "0.15"
+env_logger = "0.11"
+hex = "0.4"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+similar = "3"
+tempfile = "3"
+thiserror = "2"
+ureq = { version = "3", features = ["json"] }
