@@ -7,7 +7,7 @@ description = "Generates a glauthd configuration based on elasticsearch user dat
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 dotenv = "0.15"
 env_logger = "0.11"
 hex = "0.4"
